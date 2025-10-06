@@ -6,22 +6,14 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest   # macos-14 at time of writing
+    runs-on: macos-latest   # GitHub’s current macOS runner
     steps:
       - uses: actions/checkout@v4
 
-      # Java is sometimes needed by transitive tools; cheap to add
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Flutter
+      - name: Set up Flutter (stable channel)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
-          channel: 'stable'
+          channel: 'stable'   # <-- no flutter-version here
           cache: true
 
       - name: Show versions
@@ -40,25 +32,18 @@ jobs:
       - name: Fetch deps
         run: flutter pub get
 
-      # If a plugin triggers CocoaPods, this ensures pod is present
-      - name: Ensure CocoaPods (best-effort)
-        run: |
-          pod --version || sudo gem install cocoapods
-
-      - name: Build macOS (release, verbose)
+      - name: Build macOS (release, no code sign)
         run: |
           set -euxo pipefail
           flutter build macos --release --no-codesign -v 2>&1 | tee build.log
 
       - name: Package app as zip
-        if: success()
         run: |
           APP_PATH=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
           echo "APP_PATH=$APP_PATH"
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" nokz-macos.zip
 
       - name: Upload app artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: nokz-macos.zip
