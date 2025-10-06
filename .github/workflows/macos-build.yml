@@ -1,0 +1,40 @@
+name: macOS build
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+      - name: Enable macOS & ensure platform folder
+        run: |
+          flutter config --enable-macos-desktop
+          if [ ! -d macos ]; then
+            flutter create --platforms=macos .
+          fi
+      - name: Set product name to NOKZ
+        run: |
+          FILE=macos/Runner/Configs/AppInfo.xcconfig
+          mkdir -p macos/Runner/Configs
+          touch "$FILE"
+          grep -q '^PRODUCT_NAME' "$FILE" || echo 'PRODUCT_NAME = NOKZ' >> "$FILE"
+      - name: Fetch deps
+        run: flutter pub get
+      - name: Build macOS (release)
+        run: flutter build macos --release
+      - name: Package zip
+        run: |
+          APP_PATH=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
+          echo "Packaging: $APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" nokz-macos.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nokz-macos.zip
+          path: nokz-macos.zip
