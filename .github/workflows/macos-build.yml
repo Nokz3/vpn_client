@@ -14,7 +14,7 @@ jobs:
       - name: Set up Flutter (pin exact version)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'   # <- numeric, not "stable"
+          flutter-version: '3.22.0'    # numeric version
           channel: stable
           architecture: x64
           cache: true
@@ -35,10 +35,15 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build macOS (release, no codesign)
+      # CocoaPods is sometimes needed by plugins on macOS; install if missing
+      - name: Ensure CocoaPods
+        run: |
+          pod --version || sudo gem install cocoapods
+
+      - name: Build macOS (release)
         run: |
           set -euxo pipefail
-          flutter build macos --release --no-codesign -v 2>&1 | tee build.log
+          flutter build macos --release -v 2>&1 | tee build.log
 
       - name: Package app
         run: |
