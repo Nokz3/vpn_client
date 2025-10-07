@@ -7,12 +7,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter 3.24.x
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.24.3'
+          cache: true
 
       - run: flutter config --enable-windows-desktop
+      - run: flutter --version
       - run: flutter pub get
+
       - run: flutter build windows --release
 
       - name: Zip bundle
