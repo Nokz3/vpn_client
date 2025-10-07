@@ -1,10 +1,12 @@
 name: macOS build
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-13   # x64 runner
 
     steps:
       - uses: actions/checkout@v4
@@ -14,25 +16,50 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.24.3'
+          architecture: x64
           cache: true
 
-      - run: flutter --version
-      - run: flutter pub get
+      - name: Show versions
+        run: |
+          flutter --version
+          dart --version
+          sw_vers
+
+      - name: Enable macOS & ensure platform folder
+        run: |
+          flutter config --enable-macos-desktop
+          if [ ! -d macos ]; then
+            flutter create --platforms=macos .
+          fi
+
+      - name: Get dependencies
+        run: flutter pub get
 
       - name: Ensure CocoaPods
         run: |
-          sudo gem install cocoapods -N || true
+          pod --version || sudo gem install cocoapods -N || true
           pod repo update || true
 
-      - run: flutter config --enable-macos-desktop
-      - run: flutter build macos --release
-
-      - name: Package app as zip
+      - name: Build macOS (release)
         run: |
-          cd build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent vpn_client.app ../../../../../nokz-macos.zip
+          set -euxo pipefail
+          flutter build macos --release -v 2>&1 | tee build.log
 
-      - uses: actions/upload-artifact@v4
+      - name: Package app
+        run: |
+          APP_PATH=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
+          echo "APP_PATH=$APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" nokz-macos.zip
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
         with:
           name: nokz-macos
           path: nokz-macos.zip
+
+      - name: Upload build log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build-log
+          path: build.log
