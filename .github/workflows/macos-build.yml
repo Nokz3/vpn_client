@@ -1,65 +1,38 @@
 name: macOS build
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   build:
-    runs-on: macos-13   # x64 runner
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Flutter (pin exact version)
+      - name: Set up Flutter 3.24.x
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'    # numeric version
           channel: stable
-          architecture: x64
+          flutter-version: '3.24.3'
           cache: true
 
-      - name: Show versions
-        run: |
-          flutter --version
-          dart --version
-          sw_vers
+      - run: flutter --version
+      - run: flutter pub get
 
-      - name: Enable macOS & ensure platform folder
-        run: |
-          flutter config --enable-macos-desktop
-          if [ ! -d macos ]; then
-            flutter create --platforms=macos .
-          fi
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      # CocoaPods is sometimes needed by plugins on macOS; install if missing
       - name: Ensure CocoaPods
         run: |
-          pod --version || sudo gem install cocoapods
+          sudo gem install cocoapods -N || true
+          pod repo update || true
 
-      - name: Build macOS (release)
+      - run: flutter config --enable-macos-desktop
+      - run: flutter build macos --release
+
+      - name: Package app as zip
         run: |
-          set -euxo pipefail
-          flutter build macos --release -v 2>&1 | tee build.log
+          cd build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent vpn_client.app ../../../../../nokz-macos.zip
 
-      - name: Package app
-        run: |
-          APP_PATH=$(ls -d build/macos/Build/Products/Release/*.app | head -n1)
-          echo "APP_PATH=$APP_PATH"
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" nokz-macos.zip
-
-      - name: Upload app artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: nokz-macos.zip
+          name: nokz-macos
           path: nokz-macos.zip
-
-      - name: Upload build log (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build-log
-          path: build.log
