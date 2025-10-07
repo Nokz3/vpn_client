@@ -1,0 +1,49 @@
+name: Windows build
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.24.x
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: stable
+          architecture: x64
+          cache: true
+
+      - name: Show versions
+        run: flutter --version
+
+      - name: Enable Windows & ensure platform folder
+        shell: bash
+        run: |
+          flutter config --enable-windows-desktop
+          if [ ! -d windows ]; then
+            flutter create --platforms=windows .
+          fi
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows (release)
+        run: flutter build windows --release -v
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          $Folder = "build/windows/x64/runner/Release"
+          Compress-Archive -Path "$Folder/*" -DestinationPath "nokz-windows.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nokz-windows.zip
+          path: nokz-windows.zip

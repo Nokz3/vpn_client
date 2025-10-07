@@ -1,0 +1,51 @@
+name: Linux build
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.24.x
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: stable
+          cache: true
+
+      - name: Show versions
+        run: flutter --version && dart --version && uname -a
+
+      - name: Install desktop build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Enable Linux & ensure platform folder
+        run: |
+          flutter config --enable-linux-desktop
+          if [ ! -d linux ]; then
+            flutter create --platforms=linux .
+          fi
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Linux (release)
+        run: flutter build linux --release -v
+
+      - name: Package tar.gz
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ../../../../../nokz-linux.tar.gz .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nokz-linux.tar.gz
+          path: nokz-linux.tar.gz
