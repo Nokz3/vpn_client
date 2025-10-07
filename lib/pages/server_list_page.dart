@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:developer' as dev; // optional logs
 
 import 'package:flutter/foundation.dart' show kIsWeb; // web-safe blur
 import 'package:flutter/material.dart';
@@ -48,7 +49,7 @@ class _ServerListPageState extends State<ServerListPage> {
   @override
   void initState() {
     super.initState();
-    // Ensure there’s a DE token ready (your PayPage often reuses it)
+    // Prep a DE token opportunistically; not required to open PayPage.
     _ensureJwtForBase(deBase);
   }
 
@@ -87,20 +88,34 @@ class _ServerListPageState extends State<ServerListPage> {
     return token;
   }
 
+  // Open PayPage with non-null jwt + region
   Future<void> _openPayPage() async {
-    final sp = await SharedPreferences.getInstance();
-    final jwt = sp.getString(_jwtKeyForBase(deBase)) ??
-        sp.getString('jwt') ??
-        await _ensureJwtForBase(deBase);
     if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PayPage(
-          jwt: jwt,
-          initialRegionBase: deBase,
+    try {
+      final sp = await SharedPreferences.getInstance();
+
+      // Make jwt non-null by construction:
+      final String jwt = sp.getString(_jwtKeyForBase(deBase))
+          ?? sp.getString('jwt')
+          ?? await _ensureJwtForBase(deBase);
+
+      if (!mounted) return;
+      dev.log('Account icon tapped → opening PayPage()', name: 'ui');
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PayPage(
+            jwt: jwt,
+            initialRegionBase: deBase,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open account: $e')),
+      );
+    }
   }
 
   Future<void> _provision(ServerItem s) async {
