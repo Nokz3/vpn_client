@@ -1,4 +1,4 @@
-package com.example.vpn_client
+package io.nokz.vpn_client
 
 import io.flutter.embedding.android.FlutterActivity
 
